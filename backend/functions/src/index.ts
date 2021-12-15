@@ -1,36 +1,16 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
-const firestore = admin.firestore();
 
-exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
-  let firstName = null;
-  let lastName = null;
+// Include functions from requests.ts
+import * as requests from "./requests";
+import * as users from "./users";
+import * as rentals from "./rentals";
+import * as notifications from "./notifications";
+import * as items from "./items";
 
-  if (user.displayName != null) {
-    const fullName = user.displayName;
-    const parts = fullName.split(" ");
-    firstName = parts.slice(0, -1).join(" ");
-    if (parts.length > 1) {
-      lastName = parts.slice(-1).join(" ");
-    }
-  }
-
-  const userDocument = {
-    avatarUrl: user.photoURL,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    info: {
-      email: user.email,
-      firstName: firstName,
-      lastName: lastName,
-      phone: user.phoneNumber,
-    },
-  };
-  await firestore.collection("users").doc(user.uid).set(userDocument);
-});
-
-// It's really not so simple, temporary solution
-exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
-  await firestore.collection("users").doc(user.uid).delete();
-});
+exports.requests = requests;
+exports.users = users;
+exports.rentals = rentals;
+exports.notifications = notifications;
+exports.items = items;

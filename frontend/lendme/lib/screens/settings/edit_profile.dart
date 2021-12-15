@@ -1,12 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:lendme/components/avatar.dart';
+import 'package:lendme/components/background.dart';
 import 'package:lendme/components/loadable_area.dart';
 import 'package:lendme/exceptions/exceptions.dart';
 import 'package:lendme/models/user.dart';
 import 'package:lendme/models/user_info.dart';
 import 'package:lendme/repositories/user_repository.dart';
 import 'package:lendme/services/auth_service.dart';
-import 'package:lendme/utils/ui/error_snackbar.dart';
+import 'package:lendme/utils/error_snackbar.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 class EditProfile extends StatefulWidget {
@@ -37,6 +44,16 @@ class _EditProfileState extends State<EditProfile> {
 
   final LoadableAreaController _loadableAreaController = LoadableAreaController();
 
+  File? _pendingAvatar;
+  bool _isAvatarPending = false;
+  bool _userSet = false;
+
+
+  @override
+  void initState() {
+
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<User?>(context);
@@ -45,64 +62,139 @@ class _EditProfileState extends State<EditProfile> {
       return Container();
     }
 
-    _firstNameController.text = user.info.firstName ?? "";
-    _lastNameController.text = user.info.lastName ?? "";
-    _emailController.text = user.info.email ?? "";
-    _phoneController.text = user.info.phone ?? "";
+    if(!_userSet) {
+      setState(() {
+        _firstNameController.text = user.info.firstName ?? "";
+        _lastNameController.text = user.info.lastName ?? "";
+        _emailController.text = user.info.email ?? "";
+        _phoneController.text = user.info.phone ?? "";
+        _userSet = true;
+      });
+    }
 
     Future.delayed(const Duration(milliseconds: 10), () => _formKey.currentState!.validate());
 
-    return Scaffold(
-      appBar: AppBar(
-          title: Text(widget.afterLoginVariant ? 'Populate your profile' : 'Edit profile'),
-          elevation: 0.0
-      ),
-      body: LoadableArea(
-        controller: _loadableAreaController,
-        initialState: LoadableAreaState.main,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey,
-                      image: DecorationImage(
-                          image: NetworkImage(user.avatarUrl ?? ""),
-                          fit: BoxFit.contain,
-                      ),
-                      border: Border.all(
-                        color: Colors.blueAccent,
-                        width: 3,
-                      ),
+    return Background(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+            title: Text(widget.afterLoginVariant ? 'Populate your profile' : 'Edit profile'),
+            elevation: 0.0
+        ),
+        body: LoadableArea(
+          controller: _loadableAreaController,
+          initialState: LoadableAreaState.main,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Avatar(
+                      url: _isAvatarPending ? _pendingAvatar?.path : user.avatarUrl,
+                      size: 200,
                     ),
-                  ),
-                  const SizedBox(height: 20.0),
-                  firstNameField(),
-                  const SizedBox(height: 20.0),
-                  lastNameField(),
-                  const SizedBox(height: 20),
-                  emailField(),
-                  const SizedBox(height: 20),
-                  phoneField(),
-                  const SizedBox(height: 20),
-                  confirmButton(user.uid),
-                  if(widget.afterLoginVariant)
-                    signOutButton()
-                ],
+                    const SizedBox(height: 10),
+                    avatarButtons(user),
+                    const SizedBox(height: 20.0),
+                    firstNameField(),
+                    const SizedBox(height: 20.0),
+                    lastNameField(),
+                    const SizedBox(height: 20),
+                    emailField(),
+                    const SizedBox(height: 20),
+                    phoneField(),
+                    const SizedBox(height: 20),
+                    confirmButton(user.uid),
+                    if(widget.afterLoginVariant)
+                      signOutButton()
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Row avatarButtons(User user) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: changeImageClicked,
+            label: const Text("Change image"),
+            icon: const Icon(Icons.image_rounded),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Visibility(
+          visible: _isAvatarPending,
+          child: Expanded(
+            child: ElevatedButton.icon(
+              onPressed: resetImageClicked,
+              label: const Text("Rollback image"),
+              icon: const Icon(Icons.restart_alt_rounded),
+            ),
+          ),
+        ),
+        Visibility(
+          visible: !_isAvatarPending && user.avatarUrl != null,
+          child: Expanded(
+            child: ElevatedButton.icon(
+              onPressed: removeImageClicked,
+              label: const Text("Remove image"),
+              icon: const Icon(Icons.clear_rounded),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void changeImageClicked() async {
+    final picker = ImagePicker();
+    await Permission.photos.request();
+    var permissionStatus = await Permission.photos.status;
+    if (permissionStatus.isGranted) {
+      final image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        String selectedPath = image.path;
+        File? croppedFile = await ImageCropper.cropImage(
+            sourcePath: selectedPath,
+            aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+            cropStyle: CropStyle.circle,
+            androidUiSettings: const AndroidUiSettings(
+                toolbarTitle: 'Crop avatar image',
+                toolbarColor: Colors.blueAccent,
+                toolbarWidgetColor: Colors.white),
+        );
+        if(croppedFile != null) {
+          setState(() {
+            _pendingAvatar = croppedFile;
+            _isAvatarPending = true;
+          });
+        }
+      }
+    }
+  }
+
+  void removeImageClicked() {
+    setState(() {
+      _pendingAvatar = null;
+      _isAvatarPending = true;
+    });
+  }
+
+  void resetImageClicked() {
+    setState(() {
+      _pendingAvatar = null;
+      _isAvatarPending = false;
+    });
   }
 
   TextFormField firstNameField() {
@@ -112,10 +204,13 @@ class _EditProfileState extends State<EditProfile> {
       inputFormatters: [
         LengthLimitingTextInputFormatter(EditProfile.maxFirstNameLength),
       ],
-      decoration: const InputDecoration(
-          border: OutlineInputBorder(),
+      decoration: InputDecoration(
+          fillColor: Theme.of(context).canvasColor,
+          filled: true,
+          border: const OutlineInputBorder(),
           hintText: 'First name',
-          prefixIcon: Icon(Icons.person_rounded)
+          labelText: 'First name',
+          prefixIcon: const Icon(Icons.person_rounded)
       ),
       validator: validateFirstName,
     );
@@ -128,10 +223,13 @@ class _EditProfileState extends State<EditProfile> {
       inputFormatters: [
         LengthLimitingTextInputFormatter(EditProfile.maxLastNameLength),
       ],
-      decoration: const InputDecoration(
-          border: OutlineInputBorder(),
+      decoration: InputDecoration(
+          fillColor: Theme.of(context).canvasColor,
+          filled: true,
+          border: const OutlineInputBorder(),
+          labelText: 'Last name',
           hintText: 'Last name',
-          prefixIcon: Icon(Icons.person_rounded)
+          prefixIcon: const Icon(Icons.person_rounded)
       ),
       validator: validateLastName,
     );
@@ -145,10 +243,13 @@ class _EditProfileState extends State<EditProfile> {
       inputFormatters: [
         LengthLimitingTextInputFormatter(EditProfile.maxEmailLength),
       ],
-      decoration: const InputDecoration(
-          border: OutlineInputBorder(),
+      decoration: InputDecoration(
+          fillColor: Theme.of(context).canvasColor,
+          filled: true,
+          border: const OutlineInputBorder(),
+          labelText: 'Email address',
           hintText: 'Email address',
-          prefixIcon: Icon(Icons.email_rounded)
+          prefixIcon: const Icon(Icons.email_rounded)
       ),
       validator: validateEmail,
     );
@@ -162,10 +263,13 @@ class _EditProfileState extends State<EditProfile> {
       inputFormatters: [
         LengthLimitingTextInputFormatter(EditProfile.maxPhoneLength),
       ],
-      decoration: const InputDecoration(
-          border: OutlineInputBorder(),
+      decoration: InputDecoration(
+          fillColor: Theme.of(context).canvasColor,
+          filled: true,
+          border: const OutlineInputBorder(),
+          labelText: 'Phone number',
           hintText: 'Phone number',
-          prefixIcon: Icon(Icons.call_rounded)
+          prefixIcon: const Icon(Icons.call_rounded)
       ),
       validator: validatePhone,
     );
@@ -225,8 +329,16 @@ class _EditProfileState extends State<EditProfile> {
 
           try {
             _loadableAreaController.setState(LoadableAreaState.pending);
+            // delayed just to show pending animation for 1 second :)
             await Future.delayed(const Duration(seconds: 1));
+            // update info
             await _userRepository.setUserInfo(userId, userInfo);
+            // update avatar
+            final fIsAvatarPending = _isAvatarPending;
+            if(fIsAvatarPending) {
+              await _userRepository.setUserAvatar(_pendingAvatar);
+            }
+
             if(!widget.afterLoginVariant) {
               Navigator.of(context).pop();
             }

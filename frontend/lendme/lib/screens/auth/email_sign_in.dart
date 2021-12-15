@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lendme/components/loadable_area.dart';
 import 'package:lendme/exceptions/exceptions.dart';
 import 'package:lendme/services/auth_service.dart';
-import 'package:lendme/utils/ui/error_snackbar.dart';
+import 'package:lendme/utils/error_snackbar.dart';
 
 class EmailSignIn extends StatefulWidget {
   const EmailSignIn({Key? key}) : super(key: key);
@@ -35,10 +35,12 @@ class _EmailSignInState extends State<EmailSignIn> {
               children: [
                 const SizedBox(height: 20.0),
                 TextFormField(
-                  decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Email',
-                      prefixIcon: Icon(Icons.email)
+                  decoration: InputDecoration(
+                      fillColor: Theme.of(context).canvasColor,
+                      filled: true,
+                      border: const OutlineInputBorder(),
+                      labelText: 'Email',
+                      prefixIcon: const Icon(Icons.email)
                   ),
                   validator: (val) => val!.isEmpty ? 'Enter an email' : null,
                   onChanged: (val) {
@@ -50,10 +52,12 @@ class _EmailSignInState extends State<EmailSignIn> {
                 const SizedBox(height: 20.0),
                 TextFormField(
                   obscureText: true,
-                  decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Password',
-                      prefixIcon: Icon(Icons.password)
+                  decoration: InputDecoration(
+                      fillColor: Theme.of(context).canvasColor,
+                      filled: true,
+                      border: const OutlineInputBorder(),
+                      labelText: 'Passowrd',
+                      prefixIcon: const Icon(Icons.password)
                   ),
                   validator: (val) => val!.length < 6 ? 'Enter a password min 6 characters long' : null,
                   onChanged: (val) {

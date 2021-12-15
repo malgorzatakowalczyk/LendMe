@@ -1,12 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:lendme/utils/constants.dart';
 
 class BaseTile extends StatefulWidget {
   final String title;
   final String subtitle;
   final String? thirdLine;
   final String? imageUrl;
+  final Color? backgroundColor;
+  final Color? textColor;
   final Icon? icon;
+  final GestureTapCallback? onTap;
 
   const BaseTile(
       {Key? key,
@@ -14,7 +18,10 @@ class BaseTile extends StatefulWidget {
       required this.subtitle,
       this.thirdLine,
       this.imageUrl,
-      this.icon})
+      this.icon,
+      this.onTap,
+      this.backgroundColor,
+      this.textColor})
       : super(key: key);
 
   @override
@@ -22,8 +29,8 @@ class BaseTile extends StatefulWidget {
 }
 
 class _BaseTileState extends State<BaseTile> {
-  final Color textColor = const Color(0xFF000000);
-  final Color borderColor = const Color(0xFF6200EE);
+  final Color textColor = tileTextColor;
+  final Color borderColor = tileBorderColor;
   final String fontFamily = 'Roboto';
   final BorderRadius tileBorderRadius = BorderRadius.circular(6);
   final BorderRadius imageBorderRadius = BorderRadius.circular(12);
@@ -31,9 +38,10 @@ class _BaseTileState extends State<BaseTile> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-        splashColor: const Color(0x557D00EE),
+        splashColor: darkPrimaryColor,
         onTap: () {},
         child: ListTile(
+            tileColor: widget.backgroundColor ?? Theme.of(context).cardColor,
             shape: RoundedRectangleBorder(
                 side: BorderSide(color: borderColor),
                 borderRadius: tileBorderRadius),
@@ -52,23 +60,29 @@ class _BaseTileState extends State<BaseTile> {
                     : widget.icon),
             title: Text(widget.title,
                 style: TextStyle(
-                    fontSize: widget.thirdLine != null ? 14 : 20,
+                    color: widget.textColor,
+                    fontSize: 20,
                     fontFamily: fontFamily,
-                    fontWeight: FontWeight.bold,
-                    color: textColor)),
+                    fontWeight: FontWeight.bold)),
             subtitle: Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Wrap(direction: Axis.vertical, spacing: 5, children: [
                   Text(widget.subtitle,
                       style: TextStyle(
+                          color: widget.textColor,
                           fontSize: widget.thirdLine != null ? 11 : 14,
                           fontFamily: fontFamily)),
                   if (widget.thirdLine != null)
                     Text(widget.thirdLine!,
-                        style: TextStyle(fontSize: 11, fontFamily: fontFamily))
+                        style: TextStyle(
+                            color: widget.textColor,
+                            fontSize: 11,
+                            fontFamily: fontFamily,
+                        ))
                 ])),
             contentPadding:
                 const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
-            horizontalTitleGap: 13));
+            horizontalTitleGap: 13,
+            onTap: widget.onTap));
   }
 }

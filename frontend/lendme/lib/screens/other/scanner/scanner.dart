@@ -4,8 +4,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:lendme/screens/scanner/result.dart';
+
+import 'result.dart';
+
 
 class QRViewScreen extends StatefulWidget {
   const QRViewScreen({Key? key}) : super(key: key);
@@ -65,7 +68,7 @@ class _QRViewScreenState extends State<QRViewScreen> {
       Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => Result( text: '${result!.code}'),
+            builder: (context) => ItemDetails(itemId: '${result!.code}',),
           )).then((value) => controller.resumeCamera());;
 
 
@@ -77,7 +80,7 @@ class _QRViewScreenState extends State<QRViewScreen> {
     log('${DateTime.now().toIso8601String()}_onPermissionSet $p');
     if (!p) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('no Permission')),
+        const SnackBar(content: Text('No permission')),
       );
     }
   }

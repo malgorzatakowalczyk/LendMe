@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:lendme/exceptions/exceptions.dart';
+import 'package:lendme/repositories/user_repository.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final UserRepository _userRepository = UserRepository();
 
   // auth change user stream
   Stream<String?> get uidStream {
@@ -44,21 +46,7 @@ class AuthService {
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
       User? user = userCredential.user;
-      return user?.uid;
-    } catch (e) {
-      throw _mapAuthException(e);
-    }
-  }
-
-  // sign in with Facebook
-  Future<String?> signInWithFacebook() async {
-    try {
-      final LoginResult loginResult = await FacebookAuth.instance.login();
-      final OAuthCredential facebookAuthCredential =
-          FacebookAuthProvider.credential(loginResult.accessToken!.token);
-      final UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithCredential(facebookAuthCredential);
-      User? user = userCredential.user;
+      _userRepository.updateToken();
       return user?.uid;
     } catch (e) {
       throw _mapAuthException(e);
@@ -71,6 +59,7 @@ class AuthService {
       UserCredential credential = await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
       User? user = credential.user;
+      _userRepository.updateToken();
       return user?.uid;
     } catch (e) {
       throw _mapAuthException(e);
@@ -83,6 +72,7 @@ class AuthService {
       UserCredential credential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
       User? user = credential.user;
+      _userRepository.updateToken();
       return user?.uid;
     } catch (e) {
       throw _mapAuthException(e);
@@ -92,8 +82,12 @@ class AuthService {
   // sign out
   Future signOut() async {
     try {
+      try {
+        await _userRepository.clearToken();
+      } catch(e) {}
       return await _auth.signOut();
     } catch (e) {
+      print(e);
       throw _mapAuthException(e);
     }
   }
